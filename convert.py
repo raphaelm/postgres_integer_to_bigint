@@ -25,6 +25,9 @@ field_name_to_type_token = {}
 # Map of all integer sequence names to their type tokens
 sequence_name_to_type_token = {}
 
+# List of all bigint sequences
+bigint_sequences = []
+
 # Map of all sequence names to the (table, field) tuple they are used by (assumes only one field uses them)
 sequence_name_to_field_name = {}
 
@@ -61,9 +64,10 @@ for s in statements:
                 if tk.ttype == T.Whitespace:
                     break
                 seq_name += str(tk)
-
             if str(seq_name_token.tokens[-1]) == 'integer':
                 sequence_name_to_type_token[seq_name.strip()] = seq_name_token.tokens[-1]
+            elif str(seq_name_token.tokens[-1]) == seq_name.split(".")[-1]:
+                bigint_sequences.append(seq_name.strip())
 
     elif str(verb) == 'ALTER':
         idx, verb_type = s.token_next(idx, True, True)
@@ -110,6 +114,17 @@ for seq_name, seq_type_token in sequence_name_to_type_token.items():
     for src, tgt in foreign_key_to_target.items():
         if tgt == field:
             field_name_to_type_token[src].value = 'bigint'
+
+for seq_name in bigint_sequences:
+    field = sequence_name_to_field_name[seq_name]
+
+    if field in field_name_to_type_token and field_name_to_type_token[field].value == 'integer':
+        field_name_to_type_token[field].value = 'bigint'
+
+        # Change all foreign keys pointing to that sequence to bigint
+        for src, tgt in foreign_key_to_target.items():
+            if tgt == field:
+                field_name_to_type_token[src].value = 'bigint'
 
 for s in statements:
     print(s, end="")
